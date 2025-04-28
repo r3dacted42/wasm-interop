@@ -1,0 +1,30 @@
+# Makefile for {{module_name}} WebAssembly module
+
+CXX = em++
+CXXFLAGS = -std=c++17 -O2
+
+# Rust WebAssembly compilation
+RUST_SRC_DIR = ../rust_src
+WASM_OUTPUT = {{module_name}}.wasm
+
+# C++ bindings compilation
+CPP_FILES = {{module_name}}.cpp
+HPP_FILES = {{module_name}}.hpp
+JS_OUTPUT = {{module_name}}.js
+
+all: cpp_bindings
+
+# Compile Rust to WebAssembly
+rust_wasm:
+	@echo "Building Rust WebAssembly module..."
+	cd $(RUST_SRC_DIR) && wasm-pack build --target web
+
+# Build C++ bindings
+cpp_bindings: $(CPP_FILES) $(HPP_FILES)
+	@echo "Building C++ bindings..."
+	$(CXX) $(CXXFLAGS) -o $(JS_OUTPUT) $(CPP_FILES) -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1
+
+clean:
+	rm -f $(JS_OUTPUT) $(WASM_OUTPUT)
+
+.PHONY: all rust_wasm cpp_bindings clean

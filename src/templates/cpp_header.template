@@ -1,0 +1,36 @@
+#ifndef {{header_guard}}_HPP
+#define {{header_guard}}_HPP
+
+#include <string>
+#include <vector>
+#include <memory>
+#include <functional>
+#include <optional>
+
+{{#if has_string_param}}
+// Forward declarations for Emscripten types
+struct _emscripten_val;
+using emscripten_val = _emscripten_val;
+{{/if}}
+
+// WebAssembly module wrapper for Rust functions
+class {{module_name}}Module {
+public:
+    {{module_name}}Module();
+    ~{{module_name}}Module();
+
+    // Initialize and load the WebAssembly module
+    bool load(const std::string& path = "{{module_name}}.wasm");
+
+    // Exported functions
+    {{#each functions}}
+    {{{cpp_return_type}}} {{name}}({{#each args}}{{{cpp_type}}} {{name}}{{#unless @last}}, {{/unless}}{{/each}});
+    {{/each}}
+
+private:
+    // Internal implementation details
+    class Impl;
+    std::unique_ptr<Impl> pImpl;
+};
+
+#endif // {{header_guard}}_HPP
