@@ -1,0 +1,25 @@
+#pragma once
+#include <wasmtime.hh>
+#include <string>
+#include <vector>
+#include <memory>
+
+class {{module_name}} {
+public:
+    {{module_name}}(const std::string& wasm_path);
+    ~{{module_name}}();
+
+    {{#each functions}}
+    {{{return_type}}} {{name}}({{#each args}}{{{this.type}}} {{this.name}}{{#unless @last}}, {{/unless}}{{/each}});
+    {{/each}}
+
+private:
+    std::unique_ptr<wasmtime::Engine> engine_;
+    std::unique_ptr<wasmtime::Store> store_;
+    std::unique_ptr<wasmtime::Module> module_;
+    std::unique_ptr<wasmtime::Instance> instance_;
+    std::unique_ptr<wasmtime::Memory> memory_;
+    {{#each functions}}
+    std::unique_ptr<wasmtime::Func> {{name}}_func_;
+    {{/each}}
+};

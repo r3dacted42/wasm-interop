@@ -1,0 +1,22 @@
+WASMTIME_DIR := wasm-api
+
+.PHONY: all clean
+
+all: demo
+
+CXX = g++
+CXXFLAGS = -std=c++17 -g -I$(WASMTIME_DIR)/include -I.
+LDFLAGS = -Wl,-rpath,$(WASMTIME_DIR)/lib
+LDLIBS = -L$(WASMTIME_DIR)/lib -lwasmtime
+
+SRC = {{module_name}}.cpp demo.cpp
+OBJ = $(SRC:.cpp=.o)
+
+demo: $(OBJ)
+	$(CXX) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+
+%.o: %.cpp
+	$(CXX) -c $< -o $@ $(CXXFLAGS)
+
+clean:
+	rm -f *.o demo

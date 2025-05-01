@@ -1,0 +1,16 @@
+#include <iostream>
+#include "{{module_name}}.hpp"
+
+int main() {
+    try {
+        {{module_name}} module("{{module_name}}.wasm");
+
+        // call module functions
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+
+    return 0;
+}

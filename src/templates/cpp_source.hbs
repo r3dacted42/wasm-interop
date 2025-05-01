@@ -1,0 +1,99 @@
+#include "{{header_name}}"
+#include <stdexcept>
+#include <fstream>
+#include <cstring>
+
+{{module_name}}::{{module_name}}(const std::string& wasm_path) {
+    engine_ = std::make_unique<wasmtime::Engine>();
+    store_ = std::make_unique<wasmtime::Store>(*engine_);
+
+    // Load the Wasm file into a vector
+    std::ifstream file(wasm_path, std::ios::binary | std::ios::ate);
+    if (!file) throw std::runtime_error("Unable to open wasm file");
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<uint8_t> buffer(size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        throw std::runtime_error("Error reading wasm file");
+    }
+
+    // Compile module
+    wasmtime::Span<uint8_t> wasm_span(buffer.data(), buffer.size());
+    auto result_module = wasmtime::Module::compile(*engine_, wasm_span);
+    if (!result_module) {
+        throw std::runtime_error("Failed to compile module");
+    }
+    module_ = std::make_unique<wasmtime::Module>(result_module.unwrap());
+
+    // Create instance
+    auto result_instance = wasmtime::Instance::create(*store_, *module_, {});
+    if (!result_instance) {
+        throw std::runtime_error("Failed to instantiate module");
+    }
+    instance_ = std::make_unique<wasmtime::Instance>(result_instance.unwrap());
+
+    // Extract memory (optional, only if exported)
+    auto export_opt = instance_->get(*store_, "memory");
+    if (!export_opt.has_value()) {
+        throw std::runtime_error("Failed to find exported memory");
+    }
+    auto mem_ptr = std::get_if<wasmtime::Memory>(&*export_opt);
+    if (!mem_ptr) {
+        throw std::runtime_error("Exported 'memory' is not a Memory");
+    }
+    memory_ = std::make_unique<wasmtime::Memory>(*mem_ptr);
+
+    // Bind exported functions
+    {{#each functions}}
+    {
+        auto maybe_export = instance_->get(*store_, "{{name}}");
+        if (!maybe_export.has_value()) {
+            throw std::runtime_error("Export '{{name}}' not found");
+        }
+        auto func_ptr = std::get_if<wasmtime::Func>(&*maybe_export);
+        if (!func_ptr) {
+            throw std::runtime_error("Export '{{name}}' is not a function");
+        }
+        {{name}}_func_ = std::make_unique<wasmtime::Func>(*func_ptr);
+    }
+    {{/each}}
+}
+
+{{module_name}}::~{{module_name}}() = default;
+
+{{#each functions}}
+{{{return_type}}} {{../module_name}}::{{name}}({{#each args}}{{{this.type}}} {{this.name}}{{#unless @last}}, {{/unless}}{{/each}}) {
+    std::vector<wasmtime::Val> params({{arg_count}});
+    {{#each args}}
+    {{#if (eq this.type "const char*")}}
+    int32_t len = int(strlen({{this.name}}));
+    int32_t offset = 1024; // arbitrary offset for demo
+    uint8_t* mem_data = memory_->data(*store_).data();
+    memcpy(mem_data + offset, {{this.name}}, len);
+    params[{{this.idx}}] = wasmtime::Val(offset);
+    params[{{this.idx}} + 1] = wasmtime::Val(len);
+    {{else}}
+    params[{{this.idx}}] = wasmtime::Val({{this.name}});
+    {{/if}}
+    {{/each}}
+
+    auto result = {{name}}_func_->call(*store_, params);
+    if (!result) {
+        throw std::runtime_error("Error invoking '{{name}}'");
+    }
+    auto results = result.unwrap();
+
+    {{#if (eq return_type "const char*")}}
+    offset = results[0].i32();
+    len = results[1].i32();
+    mem_data = memory_->data(*store_).data();
+    char* str_results = new char[len + 1];
+    memcpy(str_results, mem_data + offset, len);
+    str_results[len] = '\0';
+    return str_results;
+    {{else}}
+    return results[0].{{wasm_unwrap}}();
+    {{/if}}
+}
+{{/each}}
+
