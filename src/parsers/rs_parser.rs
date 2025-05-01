@@ -14,16 +14,8 @@ struct ExportedFnVisitor {
 
 impl<'ast> Visit<'ast> for ExportedFnVisitor {
     fn visit_item_fn(&mut self, node: &'ast ItemFn) {
-        println!("\nInspecting function: {}", node.sig.ident);
-
         for attr in &node.attrs {
-            // Print each attribute path for debugging
-            let path = quote::quote!(#attr).to_string();
-            println!("  Found attribute: {}", path);
-
             if is_export(attr) {
-                println!("  -> Marked as export (#[no_mangle])");
-
                 let name = node.sig.ident.to_string();
                 let mut args = vec![];
 

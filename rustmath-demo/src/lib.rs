@@ -9,8 +9,13 @@ pub extern "C" fn multiply(a: f64, b: f64) -> f64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn greet(sub: &str) -> String {
-    format!("Hello, {}", sub)
+pub extern "C" fn greet(ret_ptr: *mut u8, sub: &str) {
+    let response = format!("Hello, {}", sub);
+
+    unsafe {
+        std::ptr::copy_nonoverlapping(response.as_ptr(), ret_ptr, response.len());
+        *ret_ptr.add(response.len()) = 0; // null terminator
+    }
 }
 
 #[unsafe(no_mangle)]

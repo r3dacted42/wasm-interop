@@ -63,35 +63,40 @@
 
 {{#each functions}}
 {{{return_type}}} {{../module_name}}::{{name}}({{#each args}}{{{this.type}}} {{this.name}}{{#unless @last}}, {{/unless}}{{/each}}) {
-    std::vector<wasmtime::Val> params({{arg_count}});
-    {{#each args}}
-    {{#if (eq this.type "const char*")}}
-    int32_t len = int(strlen({{this.name}}));
-    int32_t offset = 1024; // arbitrary offset for demo
+    std::vector<wasmtime::Val> params;
     uint8_t* mem_data = memory_->data(*store_).data();
-    memcpy(mem_data + offset, {{this.name}}, len);
-    params[{{this.idx}}] = wasmtime::Val(offset);
-    params[{{this.idx}} + 1] = wasmtime::Val(len);
+
+    {{#each args}}
+    {{#if (or (eq this.type "const char*") (eq this.type "char*"))}}
+    int32_t offset_{{@index}} = 1024 + {{@index}} * 256;
+    {{/if}}
+    {{#if (eq this.type "const char*")}}
+    int32_t len_{{@index}} = static_cast<int32_t>(strlen({{this.name}}));
+    memcpy(mem_data + offset_{{@index}}, {{this.name}}, len_{{@index}});
+    params.push_back(wasmtime::Val(offset_{{@index}}));
+    params.push_back(wasmtime::Val(len_{{@index}}));
+    {{else if (eq this.type "char*")}}
+    params.push_back(wasmtime::Val(offset_{{@index}}));
     {{else}}
-    params[{{this.idx}}] = wasmtime::Val({{this.name}});
+    params.push_back(wasmtime::Val({{this.name}}));
     {{/if}}
     {{/each}}
 
     auto result = {{name}}_func_->call(*store_, params);
     if (!result) {
-        throw std::runtime_error("Error invoking '{{name}}'");
+        throw std::runtime_error("Error invoking '{{name}}': " + result.err().message());
     }
-    auto results = result.unwrap();
 
-    {{#if (eq return_type "const char*")}}
-    offset = results[0].i32();
-    len = results[1].i32();
-    mem_data = memory_->data(*store_).data();
-    char* str_results = new char[len + 1];
-    memcpy(str_results, mem_data + offset, len);
-    str_results[len] = '\0';
-    return str_results;
+    {{#if (eq return_type "void")}}
+    const char* start = reinterpret_cast<const char*>(mem_data + offset_0);
+    size_t len = strnlen(start, 1024); // safety limit
+    char* str_out = new char[len + 1];
+    {{#with (lookup args 0) as | ret_arg |}}
+    memcpy({{ret_arg.name}}, start, len);
+    {{ret_arg.name}}[len] = '\0';
+    {{/with}}
     {{else}}
+    auto results = result.unwrap();
     return results[0].{{wasm_unwrap}}();
     {{/if}}
 }
