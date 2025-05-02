@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+// For cpp → rust binder
 pub fn prepare_cpp_template_paths() -> (PathBuf, PathBuf, PathBuf, PathBuf) {
     let templ_dir_path = PathBuf::from("./src/templates");
     if !templ_dir_path.exists() {
@@ -25,4 +26,29 @@ pub fn prepare_cpp_output_paths(module_name: &str) -> (PathBuf, PathBuf, PathBuf
     let demo_path = dir_path.join("demo.cpp");
 
     (header_path, cpp_path, makefile_path, demo_path)
+}
+
+// for rust to cpp binder
+pub fn prepare_rust_template_paths() -> (PathBuf, PathBuf) {
+    let templ_dir_path = PathBuf::from("./src/templates");
+    if !templ_dir_path.exists() {
+        panic!("Templates directory not found");
+    }
+    let rust_bindings_templ = templ_dir_path.join("rs_lib.hbs");
+    let cargo_templ = templ_dir_path.join("rs_cargo.hbs");
+
+    (rust_bindings_templ, cargo_templ)
+}
+
+pub fn prepare_rust_output_paths(module_name: &str) -> (PathBuf, PathBuf) {
+    let dir_path = PathBuf::from(format!("{}-bindings", module_name));
+    let src_path = dir_path.join("src");
+    if !src_path.exists() {
+        fs::create_dir_all(&src_path).expect("Failed to create output directory");
+    }
+    let bindings_path = src_path.join("lib.rs");
+    let cargo_path = dir_path.join("Cargo.toml");
+
+    (bindings_path, cargo_path)
+
 }

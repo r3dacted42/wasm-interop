@@ -1,0 +1,36 @@
+# ---- CONFIGURATION ----
+FROM_LANG := cpp
+TO_LANG := rust
+INPUT_SRC := input.cpp
+MODULE_NAME := input
+OUT_DIR := input-bindings
+BIN_NAME := wasm-interop
+BIN_PATH := target/release/$(BIN_NAME)
+WASM_TARGET := wasm32-unknown-unknown
+WASM_PATH := $(OUT_DIR)/$(MODULE_NAME).wasm
+BINDINGS_STAMP := $(OUT_DIR)/bindings.stamp
+
+# ---- MAIN TARGET ----
+all: $(BIN_PATH) $(BINDINGS_STAMP) $(WASM_PATH)
+
+# ---- Build binary tool ----
+$(BIN_PATH):
+	cargo build --release
+
+# ---- Generate Rust bindings from C++ source ----
+$(BINDINGS_STAMP): $(BIN_PATH) $(INPUT_SRC)
+	mkdir -p $(OUT_DIR)
+	$(BIN_PATH) --from=$(FROM_LANG) --to=$(TO_LANG) --input=$(INPUT_SRC) --module=$(MODULE_NAME)
+	touch $@
+
+# ---- Compile Input C++ to WASM using Emscripten ----
+$(WASM_PATH): $(INPUT_SRC)
+	mkdir -p $(OUT_DIR)
+	emcc $(INPUT_SRC) -o $(WASM_PATH) -s STANDALONE_WASM --no-entry
+	echo "WASM output generated at $(WASM_PATH)"
+
+# ---- Cleanup ----
+clean:
+	rm -rf $(OUT_DIR) $(BIN_PATH)
+
+.PHONY: all clean

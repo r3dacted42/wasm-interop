@@ -1,0 +1,54 @@
+use wasmtime::*;
+
+pub struct {{module}} {
+    store: Store<()>,
+    instance: Instance,
+    {{#each functions}}
+    {{name}}_func: TypedFunc<({{#each args}}{{type}}{{#unless @last}}, {{/unless}}{{/each}}), {{return_type}}>,
+    {{/each}}
+}
+
+impl {{module}} {
+    pub fn new(wasm_bytes: &[u8]) -> Self {
+        let engine = Engine::default();
+        let mut store = Store::new(&engine, ());
+        let module = Module::new(&engine, wasm_bytes).unwrap();
+        let instance = Instance::new(&mut store, &module, &[]).unwrap();
+
+        {{#each functions}}
+        let {{name}}_func = instance
+            .get_typed_func(&mut store, "{{name}}")
+            .expect("Function '{{name}}' not found");
+        {{/each}}
+
+        Self {
+            store,
+            instance,
+            {{#each functions}}
+            {{name}}_func,
+            {{/each}}
+        }
+    }
+
+    {{#each functions}}
+    pub fn {{name}}(&mut self, {{#each args}}{{this.name}}: {{this.type}}{{#unless @last}}, {{/unless}}{{/each}}) -> {{return_type}} {
+        self.{{name}}_func
+            .call(&mut self.store, ({{#each args}}{{this.name}}{{#unless @last}}, {{/unless}}{{/each}}))
+            .expect("Failed to call '{{name}}'")
+    }
+    {{/each}}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn run_tests() {
+        let wasm_bytes = fs::read("{{module}}.wasm").expect("Failed to read WASM file");
+        let mut module = {{module}}::new(&wasm_bytes);
+
+        // assert_eq!(module.add(2, 3), 5);
+    }
+}
